@@ -95,31 +95,32 @@ class Player(pygame.sprite.Sprite):
         playerRect=self.image.get_rect()
         playerRect.x=self.x
         playerRect.y=self.y
+        knockback=4/FPSScaling
         for wall in walls:
             if playerRect.colliderect(wall.rect):#pygame.Rect.colliderect(self.get_rect(), wall.getRect()):
                 if (wall.isHorizontal):
                     if rightPosition(wall.x, wall.width, self.x, self.xSpeed):
                         if self.y>wall.y:
-                            self.y+=5
+                            self.y+=knockback
                         else:
-                            self.y-=5
+                            self.y-=knockback
                     else:
                         if self.x>wall.x:
-                            self.x+=5
+                            self.x+=knockback
                         else:
-                            self.x-=5
+                            self.x-=knockback
                 #vertical paddles
                 else:
                     if rightPosition(wall.y, wall.length, self.y, self.ySpeed):
                         if self.x>wall.x:
-                            self.x+=5
+                            self.x+=knockback
                         else:
-                            self.x-=5
+                            self.x-=knockback
                     else:
                         if self.y>wall.y:
-                            self.y+=5
+                            self.y+=knockback
                         else:
-                            self.y-=5                
+                            self.y-=knockback        
 
 #wall class
 class Wall():
@@ -169,6 +170,37 @@ class Button(pygame.sprite.Sprite):
             self.hoveredOver=False
         self.image=pygame.transform.scale(image, (self.width, self.height))
 
+#trailing ball class
+class Ball():
+    def __init__(self, x, y, colour, radius):
+        self.x=x
+        self.y=y
+        self.colour=colour
+        self.radius=radius
+
+        self.ball=pygame.draw.circle(screen, self.colour, (self.x, self.y), self.radius)
+        self.ballRect=pygame.Rect(self.x, self.y, self.radius*2, self.radius*2)
+
+    def update(self):
+        self.radius-=0.01/FPSScaling
+
+    def draw(self):
+        self.ball=pygame.draw.circle(screen, self.colour, (self.x, self.y), self.radius)
+        self.ballRect=pygame.Rect(self.x, self.y, self.radius*2, self.radius*2)
+
+#pie!
+class Pie(pygame.sprite.Sprite):
+    def __init__(self, x, y, size):
+        super().__init__()
+        self.x=x
+        self.y=y
+        self.size=size
+        image=pygame.image.load("pie.png")
+        self.image=pygame.transform.scale(image, (size, size))
+        self.rect=self.image.get_rect()
+        self.rect.x=x
+        self.rect.y=y
+
 #checking that the ball has the right x/y coords
 def rightPosition(wallPos, wallLength, playerPos, playerDirect):
     #Between the top and bottom of the paddle
@@ -196,6 +228,7 @@ def createMaze()-> list[Wall]:
     #if statement just so I can shrink it
     #horizontal walls starting at the top left
     if True:
+        walls.append(Wall(xList[0], -20, 55, 5, colour))
         walls.append(Wall(xList[1], yList[0], 505, 5, colour))
         #new row
         walls.append(Wall(xList[2], yList[1], 255, 5, colour))
@@ -283,6 +316,118 @@ def createMaze()-> list[Wall]:
         #new
         walls.append(Wall(xList[11], yList[0], 5, 505, colour))
 
+    return walls
+
+def createMaze2()->list[Wall]:
+    walls=[]
+    width=5
+    gap=35
+    colour=BLACK
+    xList=[]
+    yList=[]
+    for i in range(0,16):
+        xList.append(WIDTH//7-width+gap*i)
+        yList.append(25+gap*i)
+    
+    #for i in range(0,16):
+        #walls.append(Wall(xList[i], 25, 5, 525, BLACK))
+        #walls.append(Wall(WIDTH//7, yList[i], 525, 5, BLACK))
+
+    #horizontal
+    if True:
+        walls.append(Wall(xList[0], -20, gap*2+width, width, colour))
+        walls.append(Wall(xList[1], yList[0], gap*14+width, width, colour))
+        #new
+        walls.append(Wall(xList[2], yList[1], gap*3+width, width, colour))
+        walls.append(Wall(xList[7], yList[1], gap*3+width, width, colour))
+        walls.append(Wall(xList[13], yList[1], gap*1+width, width, colour))
+        #new
+        walls.append(Wall(xList[3], yList[2], gap*3+width, width, colour))
+        walls.append(Wall(xList[8], yList[2], gap*3+width, width, colour))
+        walls.append(Wall(xList[14], yList[2], gap*1+width, width, colour))
+        #new
+        walls.append(Wall(xList[1], yList[3], gap*5+width, width, colour))
+        walls.append(Wall(xList[7], yList[3], gap*5+width, width, colour))
+        walls.append(Wall(xList[13], yList[3], gap*1+width, width, colour))
+        #new
+        walls.append(Wall(xList[3], yList[4], gap*4+width, width, colour))
+        walls.append(Wall(xList[8], yList[4], gap*5+width, width, colour))
+        walls.append(Wall(xList[14], yList[4], gap*1+width, width, colour))
+        #new
+        walls.append(Wall(xList[4], yList[5], gap*4+width, width, colour))
+        walls.append(Wall(xList[9], yList[5], gap*5+width, width, colour))
+        #new
+        walls.append(Wall(xList[4], yList[6], gap*11+width, width, colour))
+        #new
+        walls.append(Wall(xList[0], yList[7], gap*2+width, width, colour))
+        walls.append(Wall(xList[6], yList[7], gap*8+width, width, colour))
+        #new
+        walls.append(Wall(xList[1], yList[8], gap*2+width, width, colour))
+        walls.append(Wall(xList[7], yList[8], gap*8+width, width, colour))
+        #new
+        walls.append(Wall(xList[2], yList[9], gap*2+width, width, colour))
+        walls.append(Wall(xList[7], yList[9], gap*7+width, width, colour))
+        #new
+        walls.append(Wall(xList[6], yList[10], gap*5+width, width, colour))
+        #new
+        walls.append(Wall(xList[7], yList[11], gap*3+width, width, colour))
+        #new
+        walls.append(Wall(xList[6], yList[12], gap*3+width, width, colour))
+        #new
+        walls.append(Wall(xList[5], yList[13], gap*3+width, width, colour))
+        walls.append(Wall(xList[13], yList[13], gap*2+width, width, colour))
+        #new
+        walls.append(Wall(xList[4], yList[14], gap*3+width, width, colour))
+        walls.append(Wall(xList[11], yList[14], gap*3+width, width, colour))
+        #new
+        walls.append(Wall(xList[0], yList[15], gap*14+width, width, colour))
+
+    #vertical
+    if True:
+        walls.append(Wall(xList[2], -20, width, 50, colour))
+        walls.append(Wall(xList[0], -20, width, gap*15+width+45, colour))
+        #new
+        walls.append(Wall(xList[1], yList[0], width, gap*2+width, colour))
+        walls.append(Wall(xList[1], yList[3], width, gap*3+width, colour))
+        walls.append(Wall(xList[1], yList[8], width, gap*6+width, colour))
+        #new
+        walls.append(Wall(xList[2], yList[1], width, gap*2+width, colour))
+        walls.append(Wall(xList[2], yList[4], width, gap*3+width, colour))
+        walls.append(Wall(xList[2], yList[9], width, gap*5+width, colour))
+        #new
+        walls.append(Wall(xList[3], yList[4], width, gap*4+width, colour))
+        walls.append(Wall(xList[3], yList[10], width, gap*5+width, colour))
+        #new
+        walls.append(Wall(xList[4], yList[5], width, gap*9+width, colour))
+        #new
+        walls.append(Wall(xList[5], yList[7], width, gap*6+width, colour))
+        #new
+        walls.append(Wall(xList[6], yList[0], width, gap*3+width, colour))
+        walls.append(Wall(xList[6], yList[7], width, gap*5+width, colour))
+        #new
+        walls.append(Wall(xList[7], yList[1], width, gap*3+width, colour))
+        #new
+        walls.append(Wall(xList[8], yList[4], width, gap*1+width, colour))
+        walls.append(Wall(xList[8], yList[13], width, gap*2+width, colour))
+        #new
+        walls.append(Wall(xList[9], yList[12], width, gap*2+width, colour))
+        #new
+        walls.append(Wall(xList[10], yList[11], width, gap*4+width, colour))
+        #new
+        walls.append(Wall(xList[11], yList[0], width, gap*2+width, colour))
+        walls.append(Wall(xList[11], yList[10], width, gap*4+width, colour))
+        #new
+        walls.append(Wall(xList[12], yList[0], width, gap*3+width, colour))
+        walls.append(Wall(xList[12], yList[9], width, gap*5+width, colour))
+        #new
+        walls.append(Wall(xList[13], yList[1], width, gap*3+width, colour))
+        walls.append(Wall(xList[13], yList[10], width, gap*3+width, colour))
+        #new
+        walls.append(Wall(xList[14], yList[4], width, gap*1+width, colour))
+        walls.append(Wall(xList[14], yList[9], width, gap*3+width, colour))
+        walls.append(Wall(xList[14], yList[14], width, gap*1+width, colour))
+        #new
+        walls.append(Wall(xList[15], yList[0], width, gap*15+width, colour))
 
     return walls
 
@@ -311,22 +456,23 @@ def intro(gameState):
         if event.type==pygame.MOUSEBUTTONDOWN:
             print("Pressed")
             if button.hoveredOver:
+                screen.fill(GREEN)
                 gameState="Playing"
     #end
     return gameState
 
 #main normal playing scene
-def playing(gameState, walls, sprites, player):
+def playing(gameState, walls, sprites, player, time, trails):
     global running
 
-    screen.fill(GREEN)
+    screen.fill((0,255,0,50))
     #checking to allow the game to end
     for event in pygame.event.get():
         if event.type==pygame.QUIT:
             running=False
         if event.type==pygame.MOUSEBUTTONDOWN:
             print("Pressed")
-            gameState="end"
+            gameState="End"
         #moving
         if event.type==pygame.KEYDOWN:
             if event.key==pygame.K_UP:
@@ -343,27 +489,82 @@ def playing(gameState, walls, sprites, player):
                 player.ySpeed=0
             if event.key==pygame.K_LEFT or event.key==pygame.K_RIGHT:
                 player.xSpeed=0
-                
+
+    
+    #printing the time
+    toScreen("Time: "+str(round(time)), font30, BLACK, 60, 20)
+
+    #drawing tracking balls
+    #trails.append(Ball(player.x+player.width//2, player.y+player.height//2, BLACK, 5))
+    for ball in trails:
+        ball.update()
+        ball.draw()
+
+    #drawing the player
     player.checkCollide(walls)
     player.update(player.xSpeed, player.ySpeed)
-
-
     sprites.draw(screen)
+    
+ 
     #getting the maze
     for wall in walls:
         wall.draw()
+    
+    #stopping
+    #losing after 60 seconds
+    if time>60:
+        gameState="Loss"
+    #winning
+    elif player.x>WIDTH//2+250:
+        gameState="Won"
+    return gameState
+
+def won(time, gameState):
+    global running
+
+    screen.fill(DARK_MAGENTA)
+    toScreen("Yay! You won!", font40, BLUE, WIDTH//2, 50)
+    toScreen("It only took you "+str(round(time))+" seconds to escape.", font20, GREEN, WIDTH//2, 100)
+    
+    #getting the game to be able to end
+    for event in pygame.event.get():
+        if event.type==pygame.QUIT:
+            running=False
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            print("Pressed")
+            gameState="End"
+
+    return gameState
+
+def loss(gameState):
+    global running
+    screen.fill(DARK_RED)
+    toScreen("Aw, you lost.", font40, BLACK, WIDTH//2, 50)
+
+    #getting the game to be able to end
+    for event in pygame.event.get():
+        if event.type==pygame.QUIT:
+            running=False
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            print("Pressed")
+            gameState="End"
+
     return gameState
 
 #main function
 def main():
     #creating the sprites
     player=Player(WIDTH//6+10, 10, 25, 25, 4)
-    walls=createMaze()
+    walls=createMaze2()
     playingSprites=pygame.sprite.Group()
+    pie=Pie(WIDTH//2+250, HEIGHT-70, 50)
+    playingSprites.add(pie)
     playingSprites.add(player)
+    trails=[]
     
     #stuff
     global running
+    time=0
     gameState="Intro"
 
     #having the game actually run
@@ -371,12 +572,13 @@ def main():
         if gameState=="Intro":
             gameState=intro(gameState)
         elif gameState=="Playing":
-            gameState=playing(gameState, walls, playingSprites, player)
+            gameState=playing(gameState, walls, playingSprites, player, time, trails)
+            time+=1/FPS
         elif gameState=="Won":
-            won()
+            gameState=won(time, gameState)
 
         elif gameState=="Loss":
-            loss()
+            gameState=loss(gameState)
         else:
             running=False
 
