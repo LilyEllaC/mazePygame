@@ -1,5 +1,7 @@
 import pygame
-import random
+import asyncio
+
+# pylint: disable=no-member
 
 #nessecary starting stuff
 pygame.init()
@@ -96,8 +98,6 @@ class Player(pygame.sprite.Sprite):
         playerRect.x=self.x
         playerRect.y=self.y
         knockback=4/FPSScaling
-        if self.speed==8/FPSScaling:
-            knockback=8/FPSScaling
         
         #checking all of the walls
         for wall in walls:
@@ -105,28 +105,42 @@ class Player(pygame.sprite.Sprite):
                 #horizontal walls
                 if (wall.isHorizontal):
                     if rightPosition(wall.x, wall.width, self.x, self.xSpeed):
-                        if self.y>wall.y:
+                        if self.y+self.height//2>wall.y+2.5:
                             self.y+=knockback*FPSScaling
                         else:
                             self.y-=knockback*FPSScaling
                     else:
-                        if self.x>wall.x:
+                        if self.x+self.width//2>wall.x+2.5:
                             self.x+=knockback*FPSScaling
                         else:
                             self.x-=knockback*FPSScaling
                 #vertical walls
                 else:
                     if rightPosition(wall.y, wall.length, self.y, self.ySpeed):
-                        if self.x>wall.x:
+                        if self.x+self.width//2>wall.x+2.5:
                             self.x+=knockback*FPSScaling
                         else:
                             self.x-=knockback*FPSScaling
                     else:
-                        if self.y>wall.y:
+                        print("hi")
+                        if self.y+self.height//2>wall.y+2.5:
                             self.y+=knockback*FPSScaling
                         else:
                             self.y-=knockback*FPSScaling
-                break
+                #break
+
+    def teleport(self, teleporters):
+        rect=self.image.get_rect()
+        rect.x=self.x
+        rect.y=self.y
+        
+        for teleporterHit in teleporters:
+            if rect.colliderect(teleporterHit.rect):
+                for teleportDestination in teleporters:
+                    if teleportDestination.number==teleporterHit.partner:
+                        self.x=teleportDestination.x
+                        self.y=teleportDestination.y
+
 
 #wall class
 class Wall():
@@ -215,13 +229,27 @@ class Fog(pygame.sprite.Sprite):
         y+=HEIGHT
         self.x=x
         self.y=y
-        image=pygame.image.load("fog.png")
+        image=pygame.image.load("fog.png").convert_alpha()
         self.image=pygame.transform.scale(image, (WIDTH*2, HEIGHT*2))
         self.rect=self.image.get_rect()
         self.rect.x=x
         self.rect.y=y
 
     def move(self, x, y):
+        self.rect.x=x
+        self.rect.y=y
+
+#having eleporters around the map
+class Teleporter(pygame.sprite.Sprite):
+    def __init__(self, x, y, partner, number, width, height):
+        super().__init__()
+        self.x=x
+        self.y=y
+        self.partner=partner
+        self.number=number
+        image=pygame.image.load("button.png")
+        self.image=pygame.transform.scale(image, (width, height))
+        self.rect=self.image.get_rect()
         self.rect.x=x
         self.rect.y=y
 
@@ -236,14 +264,13 @@ class PlayingState:
         playerSize=30
         pieYPos=HEIGHT-70
         
+        
         self.trails=[]
         #creating the sprites
         self.player=Player(playerXPos, 10, playerSize, playerSize, 4)
         self.sprites=pygame.sprite.Group()
         self.pie=Pie(pieXPos, pieYPos, 50)
-        self.sprites.add(self.pie)
-        self.sprites.add(self.player)
-        self.fog=Fog(playerXPos, 10)
+        
 
         #dealing with other stuff
         self.gameState="Intro"
@@ -260,6 +287,13 @@ class PlayingState:
         self.maze3Fastest=1000
         self.fastest=1000
     
+    def makeLevelsWork(self, level):
+        if level==3 or level==4:
+            self.fog=Fog(self.player.x, 10)
+        if level==2 or level==3:
+            self.teleporters=getMaze1Teleporters()
+        self.level=level
+
     def changeMaze(self, maze):
         #dealing with stuff when the maze changes
         pieXPos=WIDTH//2+250
@@ -269,12 +303,14 @@ class PlayingState:
             playerXPos=WIDTH//6+10
             playerSize=33
             pieYPos=HEIGHT-70
+            self.teleporters=getMaze1Teleporters()
         elif maze==2:
             maxTime=120
             walls=createMaze2()
             playerXPos=WIDTH//6-25
             playerSize=23
             pieYPos=HEIGHT-90
+            self.teleporters=getMaze2Teleporters()
         elif maze==3:
             maxTime=90
             walls=createMaze3()
@@ -282,6 +318,7 @@ class PlayingState:
             playerSize=21
             pieYPos=HEIGHT-45
             pieXPos=WIDTH//2-47
+            self.teleporters=getMaze3Teleporters()
             
         self.trails=[]
         #creating the sprites
@@ -316,7 +353,8 @@ class PlayingState:
             #update self records
             if self.maze3Time<self.maze3Fastest:
                 self.maze3Fastest=round(self.maze3Time*100)/100
-        
+            replaceTimes(self)        
+
 #getting from and pushing to files
 def getFromFile(fileName):
     with open(fileName, 'r') as file:
@@ -327,7 +365,6 @@ def getFromFile(fileName):
 def pushToFile(words, fileName):
     with open(fileName, 'w') as file:
         file.write(words)
-
 
 #check if the time is fastest
 def checkIfFastest(time, fileName):
@@ -452,110 +489,137 @@ def buttons(stats:PlayingState):
                 print("Whoops")
                 #stats.gameState="End"
 
+#creating the locations of the teleporters
+def getMaze1Teleporters():
+    width, height=45,45
+    teleporter1=Teleporter(300, 480, 2, 1, width, height)
+    teleporter2=Teleporter(WIDTH-300, 230, 1, 2, width, height)
+    teleporter3=Teleporter(250, 280, 4, 3, width, height)
+    teleporter4=Teleporter(WIDTH//2, HEIGHT//2+30, 3, 4, width, height)
+    return[teleporter1, teleporter2, teleporter3, teleporter4]
+
+def getMaze2Teleporters():
+    width, height=30,30
+    teleporter1=Teleporter(302.5, 100, 2, 1, width, height)
+    teleporter2=Teleporter(WIDTH-282.5, 135, 1, 2, width, height)
+    teleporter3=Teleporter(WIDTH//2-7.5, 480, 4, 3, width, height)
+    teleporter4=Teleporter(WIDTH-282.5, HEIGHT-80, 3, 4, width, height)
+    return[teleporter1, teleporter2, teleporter3, teleporter4]
+
+def getMaze3Teleporters():
+    width, height=28,28
+    teleporter1=Teleporter(WIDTH-222, 175, 2, 1, width, height)
+    teleporter2=Teleporter(282, 207, 1, 2, width, height)
+    teleporter3=Teleporter(WIDTH//2-135, 505, 4, 3, width, height)
+    teleporter4=Teleporter(WIDTH-257, HEIGHT-95, 3, 4, width, height)
+    return[teleporter1, teleporter2, teleporter3, teleporter4]
+
 #creating the mazes' walls
 def createMaze()-> list[Wall]:
     walls=[]
-    widthV, heightH=5,5 
+    width=5
+    gap=50
     
     #having a list of the possible x and y lines
     xList=[]
     yList=[]
     for i in range(0,12):
-        xList.append(WIDTH//6-widthV+50*i)
-        yList.append(25+50*i)
+        xList.append(WIDTH//6-width+gap*i)
+        yList.append(25+gap*i)
     
     colour=BLACK
     #if statement just so I can shrink it
     #horizontal walls starting at the top left
     if True:
-        walls.append(Wall(xList[0], -20, 55, 5, colour))
-        walls.append(Wall(xList[1], yList[0], 505, 5, colour))
+        walls.append(Wall(xList[0], -20, gap*1+width, width, colour))
+        walls.append(Wall(xList[1], yList[0], gap*10+width, width, colour))
         #new row
-        walls.append(Wall(xList[2], yList[1], 255, 5, colour))
-        walls.append(Wall(xList[8], yList[1], 55, 5, colour))
+        walls.append(Wall(xList[2], yList[1], gap*5+width, width, colour))
+        walls.append(Wall(xList[8], yList[1], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[1], yList[2], 55, 5, colour))
-        walls.append(Wall(xList[6], yList[2], 105, 5, colour))
-        walls.append(Wall(xList[9], yList[2], 55, 5, colour))
+        walls.append(Wall(xList[1], yList[2], gap*1+width, width, colour))
+        walls.append(Wall(xList[6], yList[2], gap*2+width, width, colour))
+        walls.append(Wall(xList[9], yList[2], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[2], yList[3], 55, 5, colour))
-        walls.append(Wall(xList[4], yList[3], 155, 5, colour))
-        walls.append(Wall(xList[10], yList[3], 55, 5, colour))
+        walls.append(Wall(xList[2], yList[3], gap*1+width, width, colour))
+        walls.append(Wall(xList[4], yList[3], gap*3+width, width, colour))
+        walls.append(Wall(xList[10], yList[3], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[1], yList[4], 105, 5, colour))
-        walls.append(Wall(xList[5], yList[4], 155, 5, colour))
-        walls.append(Wall(xList[9], yList[4], 55, 5, colour))
+        walls.append(Wall(xList[1], yList[4], gap*2+width, width, colour))
+        walls.append(Wall(xList[5], yList[4], gap*3+width, width, colour))
+        walls.append(Wall(xList[9], yList[4], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[2], yList[5], 105, 5, colour))
-        walls.append(Wall(xList[9], yList[5], 105, 5, colour))
+        walls.append(Wall(xList[2], yList[5], gap*2+width, width, colour))
+        walls.append(Wall(xList[9], yList[5], gap*2+width, width, colour))
         #new row
-        walls.append(Wall(xList[2], yList[6], 155, 5, colour))
-        walls.append(Wall(xList[6], yList[6], 55, 5, colour))
-        walls.append(Wall(xList[8], yList[6], 105, 5, colour))
+        walls.append(Wall(xList[2], yList[6], gap*3+width, width, colour))
+        walls.append(Wall(xList[6], yList[6], gap*1+width, width, colour))
+        walls.append(Wall(xList[8], yList[6], gap*2+width, width, colour))
         #new row
-        walls.append(Wall(xList[1], yList[7], 55, 5, colour))
-        walls.append(Wall(xList[3], yList[7], 155, 5, colour))
-        walls.append(Wall(xList[7], yList[7], 55, 5, colour))
-        walls.append(Wall(xList[9], yList[7], 55, 5, colour))
+        walls.append(Wall(xList[1], yList[7], gap*1+width, width, colour))
+        walls.append(Wall(xList[3], yList[7], gap*3+width, width, colour))
+        walls.append(Wall(xList[7], yList[7], gap*1+width, width, colour))
+        walls.append(Wall(xList[9], yList[7], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[0], yList[8], 55, 5, colour))
-        walls.append(Wall(xList[2], yList[8], 105, 5, colour))
-        walls.append(Wall(xList[6], yList[8], 55, 5, colour))
-        walls.append(Wall(xList[8], yList[8], 55, 5, colour))
-        walls.append(Wall(xList[10], yList[8], 55, 5, colour))
+        walls.append(Wall(xList[0], yList[8], gap*1+width, width, colour))
+        walls.append(Wall(xList[2], yList[8], gap*2+width, width, colour))
+        walls.append(Wall(xList[6], yList[8], gap*1+width, width, colour))
+        walls.append(Wall(xList[8], yList[8], gap*1+width, width, colour))
+        walls.append(Wall(xList[10], yList[8], gap*1+width, width, colour))
         #new row
-        walls.append(Wall(xList[5], yList[9], 55, 5, colour))
-        walls.append(Wall(xList[9], yList[9], 105, 5, colour))
+        walls.append(Wall(xList[5], yList[9], gap*1+width, width, colour))
+        walls.append(Wall(xList[9], yList[9], gap*2+width, width, colour))
         #new row
-        walls.append(Wall(xList[1], yList[10], 205, 5, colour))
-        walls.append(Wall(xList[7], yList[10], 105, 5, colour))
+        walls.append(Wall(xList[1], yList[10], gap*4+width, width, colour))
+        walls.append(Wall(xList[7], yList[10], gap*2+width, width, colour))
         #walls.append(Wall(xList[11], yList[10], 205, 5, colour))
         #new row
-        walls.append(Wall(xList[0], yList[11], 605, 5, colour))
-        walls.append(Wall(xList[11], yList[10], 50, 5, colour))
+        walls.append(Wall(xList[0], yList[11], gap*12+width, width, colour))
+        walls.append(Wall(xList[11], yList[10], gap*1+width, width, colour))
+    addedWidth=0
     #veritcal walls
     if True:
-        walls.append(Wall(xList[0], -20, 5, 600, colour))
+        walls.append(Wall(xList[0], -20, width, 600, colour))
         #new
-        walls.append(Wall(xList[1], -20, 5, 145, colour))
-        walls.append(Wall(xList[1], yList[3], 5, 200, colour))
-        walls.append(Wall(xList[1], yList[8], 5, 50, colour))
+        walls.append(Wall(xList[1], -20, width, 145, colour))
+        walls.append(Wall(xList[1], yList[3], width, gap*4+addedWidth, colour))
+        walls.append(Wall(xList[1], yList[8], width, gap*1+addedWidth, colour))
         #new
-        walls.append(Wall(xList[2], yList[5], 5, 50, colour))
-        walls.append(Wall(xList[2], yList[7], 5, 100, colour))
+        walls.append(Wall(xList[2], yList[5], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[2], yList[7], width, gap*2+addedWidth, colour))
         #new
-        walls.append(Wall(xList[3], yList[2], 5, 100, colour))
-        walls.append(Wall(xList[3], yList[9], 5, 50, colour))
+        walls.append(Wall(xList[3], yList[2], width, gap*2+addedWidth, colour))
+        walls.append(Wall(xList[3], yList[9], width, gap*1+addedWidth, colour))
         #new
-        walls.append(Wall(xList[4], yList[1], 5, 50, colour))
-        walls.append(Wall(xList[4], yList[3], 5, 100, colour))
-        walls.append(Wall(xList[4], yList[8], 5, 100, colour))
+        walls.append(Wall(xList[4], yList[1], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[4], yList[3], width, gap*2+addedWidth, colour))
+        walls.append(Wall(xList[4], yList[8], width, gap*2+addedWidth, colour))
         #new
-        walls.append(Wall(xList[5], yList[2], 5, 50, colour))
-        walls.append(Wall(xList[5], yList[5], 5, 50, colour))
-        walls.append(Wall(xList[5], yList[7], 5, 150, colour))
+        walls.append(Wall(xList[5], yList[2], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[5], yList[5], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[5], yList[7], width, gap*3+addedWidth, colour))
         #new
-        walls.append(Wall(xList[6], yList[5], 5, 100, colour))
-        walls.append(Wall(xList[6], yList[9], 5, 100, colour))
+        walls.append(Wall(xList[6], yList[5], width, gap*2+addedWidth, colour))
+        walls.append(Wall(xList[6], yList[9], width, gap*2+addedWidth, colour))
         #new
-        walls.append(Wall(xList[7], yList[0], 5, 50, colour))
-        walls.append(Wall(xList[7], yList[2], 5, 50, colour))
-        walls.append(Wall(xList[7], yList[4], 5, 50, colour))
-        walls.append(Wall(xList[7], yList[6], 5, 150, colour))
+        walls.append(Wall(xList[7], yList[0], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[7], yList[2], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[7], yList[4], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[7], yList[6], width, gap*3+addedWidth, colour))
         #new
-        walls.append(Wall(xList[8], yList[1], 5, 50, colour))
-        walls.append(Wall(xList[8], yList[3], 5, 200, colour))
-        walls.append(Wall(xList[8], yList[8], 5, 100, colour))
+        walls.append(Wall(xList[8], yList[1], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[8], yList[3], width, gap*4+addedWidth, colour))
+        walls.append(Wall(xList[8], yList[8], width, gap*2+addedWidth, colour))
         #new
-        walls.append(Wall(xList[9], yList[0], 5, 50, colour))
-        walls.append(Wall(xList[9], yList[2], 5, 150, colour))
-        walls.append(Wall(xList[9], yList[7], 5, 50, colour))
-        walls.append(Wall(xList[9], yList[9], 5, 50, colour))
+        walls.append(Wall(xList[9], yList[0], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[9], yList[2], width, gap*3+addedWidth, colour))
+        walls.append(Wall(xList[9], yList[7], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[9], yList[9], width, gap*1+addedWidth, colour))
         #new
-        walls.append(Wall(xList[10], yList[1], 5, 50, colour))
-        walls.append(Wall(xList[10], yList[10], 5, 50, colour))
+        walls.append(Wall(xList[10], yList[1], width, gap*1+addedWidth, colour))
+        walls.append(Wall(xList[10], yList[10], width, gap*1+addedWidth, colour))
         #new
-        walls.append(Wall(xList[11], yList[0], 5, 505, colour))
+        walls.append(Wall(xList[11], yList[0], width, gap*10+addedWidth, colour))
 
     return walls
 
@@ -882,7 +946,7 @@ def intro(gameState):
     #text
     toScreen("Welcome to the a-maze-ing maze game!", font40, BLACK, WIDTH//2, 100)
     toScreen3("Try to find your way out of the maze as fast as posible", "You have a maximum of 60 seconds for the first maze, 75 seconds for the second, ", "and 90 seconds for the third so try not to get lost", font20, BLACK, WIDTH//2, HEIGHT//2)
-
+    toScreen3("There will be multiple choices for the difficulty level.", "Fog mean you can only see a radius of roughly 200 pixels around you", "Teleporters will teleport you to another teleporter if you click space while touching it.", font15, WHITE, WIDTH//2, HEIGHT//2+50)
     #button
     button.update()
     introSprites.draw(screen)
@@ -895,54 +959,66 @@ def intro(gameState):
             print("Pressed")
             if button.hoveredOver:
                 screen.fill(GREEN)
-                gameState="Playing"
+                gameState="Choose"
     #end
     return gameState
 
 #choosing the maze difficulty
-def choose(maze):
+def choose(stats:PlayingState):
     global running
     screen.fill(DARK_TEAL)
     toScreen("Please choose which level of difficulty you want.", font37, BLACK, WIDTH//2, 100)
-    toScreen3("1. Easy, 1 minute to escape a maze", "2. Medium, 1:30 to escape a bigger maze", "3. 2 minutes to escape a hard maze", font30, BLACK, WIDTH//2, HEIGHT//2-75)
+    toScreen2("1. No fog, no teleporters, 2. No fog, yes teleporters", "3. Yes fog, yes teleporters, 4. Yes fog, no teleporters", font30, BLACK, WIDTH//2, HEIGHT//2-75)
 
     #creating buttons
-    colours=[RED, DARK_RED, ORANGE, DARK_ORANGE, YELLOW, DARK_YELLOW]
-    one, two, three=0, 2, 4
-    width, height=200,200
-    oneButton=(100, HEIGHT//2+50, width, height)
-    twoButton=(WIDTH//2-width//2, HEIGHT//2+50, width, height)
-    threeButton=(WIDTH-100-width, HEIGHT//2+50, width, height)
+    colours=[RED, DARK_RED, ORANGE, DARK_ORANGE, YELLOW, DARK_YELLOW, GREEN, DARK_GREEN]
+    one, two, three, four=0, 2, 4, 6
+    width, height=175,175
+    oneButton=(40, HEIGHT//2+50, width, height)
+    twoButton=(WIDTH//2-20-width, HEIGHT//2+50, width, height)
+    threeButton=(WIDTH//2+20, HEIGHT//2+50, width, height)
+    fourButton=(WIDTH-40-width, HEIGHT//2+50, width, height)
     one=drawTextSquare(colours, one, "1.", oneButton)
     two=drawTextSquare(colours, two, "2.", twoButton)
     three=drawTextSquare(colours, three, "3.", threeButton)
+    four=drawTextSquare(colours, four, "4.", fourButton)
 
     #checking for clicks and stopping
     for event in pygame.event.get():
         if event.type==pygame.QUIT:
             running=False
         if event.type==pygame.MOUSEBUTTONDOWN:
-            print("pressed!!!!")
             if one==1:
-                maze=1
+                level=1
             elif two==3:
-                maze=2
+                level=2
             elif three==5:
-                maze=3
+                level=3
+            elif four==7:
+                level=4
+            if one==1 or two==3 or three==5 or four==7:
+                stats.gameState="Playing"
+                stats.makeLevelsWork(level)
+
     
-    return maze
+    return stats
     
 #main normal playing scene
-def playing(playingStuff: PlayingState):
-    
+def playing(playingStuff: PlayingState):    
     sprites=pygame.sprite.Group()
-    sprites.add(playingStuff.pie)
     sprites.add(playingStuff.player)
-    sprites.add(playingStuff.fog)
+    
+    if playingStuff.level==3 or  playingStuff.level==4:
+        sprites.add(playingStuff.fog)
+    if playingStuff.level==2 or playingStuff.level==3:
+        for teleporter in playingStuff.teleporters:
+            sprites.add(teleporter)
+    sprites.add(playingStuff.pie)
+
     
     global running
 
-    screen.fill((0,255,0,50))
+    screen.fill(GREEN)
     #checking to allow the game to end
     for event in pygame.event.get():
         if event.type==pygame.QUIT:
@@ -960,12 +1036,17 @@ def playing(playingStuff: PlayingState):
                 playingStuff.player.xSpeed-=playingStuff.player.speed*FPSScaling
             elif event.key==pygame.K_RIGHT:
                 playingStuff.player.xSpeed+=playingStuff.player.speed*FPSScaling
+            if event.key==pygame.K_SPACE:
+                playingStuff.player.teleport(playingStuff.teleporters)
 
         if event.type==pygame.KEYUP:
             if event.key==pygame.K_UP or event.key==pygame.K_DOWN:
                 playingStuff.player.ySpeed=0
             if event.key==pygame.K_LEFT or event.key==pygame.K_RIGHT:
                 playingStuff.player.xSpeed=0
+            if event.key==pygame.K_SPACE:
+                playingStuff.player.speed=4
+        
     
     #drawing tracking balls
     playingStuff.trails.append(Ball(playingStuff.player.x+playingStuff.player.width//2, playingStuff.player.y+playingStuff.player.height//2, BLACK, 5))
@@ -980,7 +1061,8 @@ def playing(playingStuff: PlayingState):
     #drawing the player and pie and fog
     playingStuff.player.checkCollide(playingStuff.walls)
     playingStuff.player.update(playingStuff.player.xSpeed, playingStuff.player.ySpeed)
-    playingStuff.fog.move(playingStuff.player.x-WIDTH, playingStuff.player.y-HEIGHT)
+    if playingStuff.level==3 or playingStuff.level==4:
+        playingStuff.fog.move(playingStuff.player.x-WIDTH, playingStuff.player.y-HEIGHT)
     sprites.draw(screen)
     
     #printing the time
@@ -1006,7 +1088,6 @@ def playing(playingStuff: PlayingState):
     #winning
     elif playingStuff.player.x>WIDTH//2+250:
         playingStuff.updateTimers()
-        replaceTimes(playingStuff)
         playingStuff.maze+=1
         playingStuff.changeMaze(playingStuff.maze)
         playingStuff.gameState="Playing"
@@ -1014,7 +1095,6 @@ def playing(playingStuff: PlayingState):
     elif playingStuff.maze==3 and playingStuff.player.y>HEIGHT-30:
         playingStuff.gameState="Won"
         playingStuff.updateTimers()
-        replaceTimes(playingStuff)
         playingStuff.time=round((playingStuff.maze1Fastest+playingStuff.maze2Fastest+playingStuff.maze3Fastest)*100)/100
         if playingStuff.time<playingStuff.fastest:
             playingStuff.fastest=round((playingStuff.time)*100)/100
@@ -1039,14 +1119,13 @@ def loss(stats:PlayingState):
     global running
     screen.fill(DARK_RED)
     toScreen("Aw, you lost.", font40, BLACK, WIDTH//2, 50)
-    toScreen2("The 1000 just means that you haven't finished the maze yet,", "please click on the button and try that maze again", font30, BLACK, WIDTH//2, HEIGHT//2)
+    toScreen2("The 1000 just means that you haven't finished the maze yet,", "please click on the button and try that maze again", font30, BLACK, WIDTH//2, HEIGHT//2-150)
     buttons(stats)
 
     return stats.gameState
 
 #main function
-def main():
-    
+async def main():
     #stuff
     global running
     maze=1
@@ -1056,7 +1135,8 @@ def main():
     while running:
         if playingStuff.gameState=="Intro":
             playingStuff.gameState=intro(playingStuff.gameState)
-
+        elif playingStuff.gameState=="Choose":
+            playingStuff=choose(playingStuff)
         elif playingStuff.gameState=="Playing":
             playingStuff=playing(playingStuff)
             playingStuff.time+=1/FPS
@@ -1071,12 +1151,12 @@ def main():
         #doing mandatory stuff
         clock.tick(FPS)
         pygame.display.flip()
-        
+    await asyncio.sleep(0)
 
 
 
 #stuff
 if __name__=="__main__":
-    main()
+    asyncio.run(main())
     pygame.quit()
     
