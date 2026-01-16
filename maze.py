@@ -1,6 +1,7 @@
 import pygame
 import asyncio
 
+
 # pylint: disable=no-member
 
 #nessecary starting stuff
@@ -122,7 +123,6 @@ class Player(pygame.sprite.Sprite):
                         else:
                             self.x-=knockback*FPSScaling
                     else:
-                        print("hi")
                         if self.y+self.height//2>wall.y+2.5:
                             self.y+=knockback*FPSScaling
                         else:
@@ -140,7 +140,6 @@ class Player(pygame.sprite.Sprite):
                     if teleportDestination.number==teleporterHit.partner:
                         self.x=teleportDestination.x
                         self.y=teleportDestination.y
-
 
 #wall class
 class Wall():
@@ -229,15 +228,35 @@ class Fog(pygame.sprite.Sprite):
         y+=HEIGHT
         self.x=x
         self.y=y
-        image=pygame.image.load("fog.png").convert_alpha()
-        self.image=pygame.transform.scale(image, (WIDTH*2, HEIGHT*2))
+        self.height=HEIGHT*2
+        self.width=WIDTH*2
+        self.originalImage=pygame.image.load("fog.png").convert_alpha()
+        self.image=pygame.transform.scale(self.originalImage, (self.width, self.height))
         self.rect=self.image.get_rect()
         self.rect.x=x
         self.rect.y=y
 
     def move(self, x, y):
-        self.rect.x=x
-        self.rect.y=y
+        self.rect.x=x-self.width//2
+        self.rect.y=y-self.height//2
+        #dealing with size
+        if self.width>=WIDTH*2:
+            self.image=pygame.transform.scale(self.originalImage, (self.width, self.height))
+        
+
+        
+    def changeSize(self):
+        self.width+=10
+        self.height+=10
+        #self.rect.y=1000
+        #self.rect.y=1000
+
+    def unchangeSize(self):
+        if self.width>WIDTH*2:
+            self.height-=10
+            self.width-=10
+        #self.rect.x=self.x
+        #self.rect.y=self.y
 
 #having eleporters around the map
 class Teleporter(pygame.sprite.Sprite):
@@ -247,7 +266,7 @@ class Teleporter(pygame.sprite.Sprite):
         self.y=y
         self.partner=partner
         self.number=number
-        image=pygame.image.load("button.png")
+        image=pygame.image.load("portal.png")
         self.image=pygame.transform.scale(image, (width, height))
         self.rect=self.image.get_rect()
         self.rect.x=x
@@ -353,23 +372,38 @@ class PlayingState:
             #update self records
             if self.maze3Time<self.maze3Fastest:
                 self.maze3Fastest=round(self.maze3Time*100)/100
-            replaceTimes(self)        
+            self.time=round((self.maze1Fastest+self.maze2Fastest+self.maze3Fastest)*100)/100
+            print(self.time)
+            replaceTimes(self)
 
 #getting from and pushing to files
-def getFromFile(fileName):
+def getFromFile(fileName, gameType):
     with open(fileName, 'r') as file:
-        timeAndName=file.read()
-    return timeAndName
+        for index, line in enumerate(file,1):
+            if index==gameType:
+                return line.rstrip("\n")
+    return "1000"
 
 #push name to file
-def pushToFile(words, fileName):
+def pushToFile(words, fileName, gameType:int):
+    #opening the file
+    with open(fileName, 'r') as file:
+        lines=file.readlines()
+
+    #going to the write lines
+    if 1 <= gameType <= len(lines):
+        if not words.endswith("\n"):
+            words+="\n"
+        lines[gameType-1]=words
+
+    #actually replacing the words
     with open(fileName, 'w') as file:
-        file.write(words)
+        file.writelines(lines)
 
 #check if the time is fastest
-def checkIfFastest(time, fileName):
-    #checking which is fastest
-    if time<float(getFromFile(fileName)):
+def checkIfFastest(time, fileName, gameType):
+    #checking which is fastestlilyPython
+    if time<float(getFromFile(fileName, gameType)):
         newFastestTime=True
     else:
         newFastestTime=False
@@ -378,36 +412,36 @@ def checkIfFastest(time, fileName):
 
 #replacing the fastest time
 def replaceTimes(stats:PlayingState):
-    if checkIfFastest(stats.maze1Time, "maze1TopTime"):
-        pushToFile(str(stats.maze1Time), "maze1TopTime")
-    if checkIfFastest(stats.maze2Time, "maze2TopTime"):
-        pushToFile(str(stats.maze2Time), "maze2TopTime")
-    if checkIfFastest(stats.maze3Time, "maze3TopTime"):
-        pushToFile(str(stats.maze3Time), "maze3TopTime")
-    if checkIfFastest(stats.time, "totalTopTime"):
-        pushToFile(str(stats.time), "totalTopTime")
+    if checkIfFastest(stats.maze1Time, "maze1TopTime", stats.level):
+        pushToFile(str(stats.maze1Time), "maze1TopTime", stats.level)
+    if checkIfFastest(stats.maze2Time, "maze2TopTime", stats.level):
+        pushToFile(str(stats.maze2Time), "maze2TopTime", stats.level)
+    if checkIfFastest(stats.maze3Time, "maze3TopTime", stats.level):
+        pushToFile(str(stats.maze3Time), "maze3TopTime", stats.level)
+    if checkIfFastest(stats.time, "totalTopTime", stats.level):
+        pushToFile(str(stats.time), "totalTopTime", stats.level)
 
 #showing their best times
 def showBestTimes(stats:PlayingState):
     #showing both the personal best and he total bes (with total best not working yet)
     toScreen2("Personal Best:", str(stats.maze1Fastest), font25, BLUE, 200, HEIGHT//2+200)
-    toScreen2("The Best:", getFromFile("maze1TopTime"), font25, BLUE, 200, HEIGHT//2+100)
+    toScreen2("The Best:", getFromFile("maze1TopTime", stats.level), font25, BLUE, 200, HEIGHT//2+100)
     if stats.maze1Time!=1000:
         toScreen2("Personal Best:", str(stats.maze2Fastest), font25, BLUE, WIDTH//2, HEIGHT//2+200)
-        toScreen2("The Best:", getFromFile("maze2TopTime"), font25, BLUE, WIDTH//2, HEIGHT//2+100)
+        toScreen2("The Best:", getFromFile("maze2TopTime", stats.level), font25, BLUE, WIDTH//2, HEIGHT//2+100)
         if stats.maze2Time!=1000:
             toScreen2("Personal Best:", str(stats.maze3Fastest), font25, BLUE, WIDTH-200, HEIGHT//2+200)
             toScreen2("Total Personal Best:", str(stats.fastest), font25, BLACK, WIDTH//4, HEIGHT//2)
-            toScreen2("The Best:", getFromFile("maze3TopTime"), font25, BLUE, WIDTH-200, HEIGHT//2+100)
-            toScreen2("Total Best:", getFromFile("totalTopTime"), font25, BLACK, WIDTH//4*3, HEIGHT//2)
+            toScreen2("The Best:", getFromFile("maze3TopTime", stats.level), font25, BLUE, WIDTH-200, HEIGHT//2+100)
+            toScreen2("Total Best:", getFromFile("totalTopTime", stats.level), font25, BLACK, WIDTH//4*3, HEIGHT//2)
     #showin if there is a record
-    if checkIfFastest(stats.maze1Time, "maze1TopTime"):
+    if checkIfFastest(stats.maze1Time, "maze1TopTime", stats.level):
         toScreen("New Fastest Time!", font30, PURPLE, 100, HEIGHT//2+100)
-    if checkIfFastest(stats.maze2Time, "maze2TopTime"):
+    if checkIfFastest(stats.maze2Time, "maze2TopTime", stats.level):
         toScreen("New Fastest Time!", font30, PURPLE, WIDTH//2-100, HEIGHT//2+100)
-    if checkIfFastest(stats.maze3Time, "maze3TopTime"):
+    if checkIfFastest(stats.maze3Time, "maze3TopTime", stats.level):
         toScreen("New Fastest Time!", font30, PURPLE, WIDTH-200, HEIGHT//2+100)
-    if checkIfFastest(stats.time, "totalTopTime"):
+    if checkIfFastest(stats.time, "totalTopTime", stats.level):
         toScreen("New Fastest Time!", font30, PURPLE, WIDTH//2, HEIGHT//2+250)
 
 #checking that the ball has the right x/y coords
@@ -475,7 +509,6 @@ def buttons(stats:PlayingState):
         if event.type==pygame.QUIT:
             running=False
         if event.type==pygame.MOUSEBUTTONDOWN:
-            print("Pressed")
             if one==1 and (not loss or stats.maze1Time==1000):
                 stats.changeMaze(1)
                 stats.gameState="Playing"
@@ -488,6 +521,10 @@ def buttons(stats:PlayingState):
             else:
                 print("Whoops")
                 #stats.gameState="End"
+
+#drawing the sprites to se how long it takes
+def drawSprites(sprites):
+    sprites.draw(screen)
 
 #creating the locations of the teleporters
 def getMaze1Teleporters():
@@ -754,6 +791,7 @@ def createMaze3()->list[Wall]:
 
     #horizontal
     if True:
+        walls.append(Wall(xList[8], -20, gap*1+width, width, colour))
         walls.append(Wall(xList[0], yList[0], gap*8+width, width, colour))
         walls.append(Wall(xList[9], yList[0], gap*8+width, width, colour))
         #new
@@ -930,7 +968,6 @@ def createMaze3()->list[Wall]:
         #new
         walls.append(Wall(xList[17], yList[0], width, gap*17+width, colour))
 
-
     return walls
         
 #different displaying functions
@@ -946,7 +983,9 @@ def intro(gameState):
     #text
     toScreen("Welcome to the a-maze-ing maze game!", font40, BLACK, WIDTH//2, 100)
     toScreen3("Try to find your way out of the maze as fast as posible", "You have a maximum of 60 seconds for the first maze, 75 seconds for the second, ", "and 90 seconds for the third so try not to get lost", font20, BLACK, WIDTH//2, HEIGHT//2)
-    toScreen3("There will be multiple choices for the difficulty level.", "Fog mean you can only see a radius of roughly 200 pixels around you", "Teleporters will teleport you to another teleporter if you click space while touching it.", font15, WHITE, WIDTH//2, HEIGHT//2+50)
+    toScreen3("There will be multiple choices for the difficulty level.", "Fog mean you can only see part of the maze, if you don't move, th area will temperarily increase", "Teleporters will teleport you to another teleporter if you click space while touching it.", font15, WHITE, WIDTH//2, HEIGHT//2+50)
+    
+      
     #button
     button.update()
     introSprites.draw(screen)
@@ -956,7 +995,6 @@ def intro(gameState):
         if event.type==pygame.QUIT:
             running=False
         if event.type==pygame.MOUSEBUTTONDOWN:
-            print("Pressed")
             if button.hoveredOver:
                 screen.fill(GREEN)
                 gameState="Choose"
@@ -1004,7 +1042,7 @@ def choose(stats:PlayingState):
     return stats
     
 #main normal playing scene
-def playing(playingStuff: PlayingState):    
+def playing(playingStuff: PlayingState):  
     sprites=pygame.sprite.Group()
     sprites.add(playingStuff.player)
     
@@ -1024,7 +1062,6 @@ def playing(playingStuff: PlayingState):
         if event.type==pygame.QUIT:
             running=False
         if event.type==pygame.MOUSEBUTTONDOWN and playingStuff.maze1Time!=1000 and playingStuff.maze2Time!=1000 and playingStuff.maze3Time!=1000:
-            print("Pressed")
             playingStuff.gameState="Won"
         #moving
         if event.type==pygame.KEYDOWN:
@@ -1036,7 +1073,7 @@ def playing(playingStuff: PlayingState):
                 playingStuff.player.xSpeed-=playingStuff.player.speed*FPSScaling
             elif event.key==pygame.K_RIGHT:
                 playingStuff.player.xSpeed+=playingStuff.player.speed*FPSScaling
-            if event.key==pygame.K_SPACE:
+            if event.key==pygame.K_SPACE and (playingStuff.level==2 or playingStuff.level==3):
                 playingStuff.player.teleport(playingStuff.teleporters)
 
         if event.type==pygame.KEYUP:
@@ -1044,8 +1081,7 @@ def playing(playingStuff: PlayingState):
                 playingStuff.player.ySpeed=0
             if event.key==pygame.K_LEFT or event.key==pygame.K_RIGHT:
                 playingStuff.player.xSpeed=0
-            if event.key==pygame.K_SPACE:
-                playingStuff.player.speed=4
+            
         
     
     #drawing tracking balls
@@ -1062,14 +1098,21 @@ def playing(playingStuff: PlayingState):
     playingStuff.player.checkCollide(playingStuff.walls)
     playingStuff.player.update(playingStuff.player.xSpeed, playingStuff.player.ySpeed)
     if playingStuff.level==3 or playingStuff.level==4:
-        playingStuff.fog.move(playingStuff.player.x-WIDTH, playingStuff.player.y-HEIGHT)
-    sprites.draw(screen)
+        if playingStuff.player.xSpeed==0 and playingStuff.player.ySpeed==0:
+            playingStuff.fog.changeSize()
+        else:
+            playingStuff.fog.unchangeSize()
+        playingStuff.fog.move(playingStuff.player.x, playingStuff.player.y)
+        
+    
+    #exists just to check the time spent here
+    drawSprites(sprites)
     
     #printing the time
     colour=BLACK
     if playingStuff.maxTime-playingStuff.time<10:
         colour=RED
-    toScreen("Time: "+str(round(playingStuff.time)), font30, colour, WIDTH-100, 30)
+    toScreen("Time: "+str(round(playingStuff.time))+ " " +str(clock.get_fps()), font30, colour, WIDTH-100, 30)
     toScreen("Max time: "+str(playingStuff.maxTime), font30, BLACK, WIDTH-100, 60)
 
     
@@ -1107,7 +1150,7 @@ def won(stats: PlayingState):
 
     screen.fill(DARK_MAGENTA)
     toScreen("Yay! You won!", font40, BLUE, WIDTH//2, 50)
-    toScreen("It only took you a total of "+str(stats.time)+" seconds to escape.", font20, GREEN, WIDTH//2, 100)
+    toScreen("It only took you a total of "+str(round(stats.time))+" seconds to escape.", font20, GREEN, WIDTH//2, 100)
     toScreen3("It took you "+str(stats.maze1Time)+" seconds to escape the first maze", "It took you "+str(stats.maze2Time)+" seconds to escape the second maze", "It took you "+str(stats.maze3Time)+" seconds to escape the third maze", font30, BLACK, WIDTH//2, HEIGHT//2-100)
     
     #showing the buttons to replay
@@ -1122,6 +1165,7 @@ def loss(stats:PlayingState):
     toScreen2("The 1000 just means that you haven't finished the maze yet,", "please click on the button and try that maze again", font30, BLACK, WIDTH//2, HEIGHT//2-150)
     buttons(stats)
 
+    #continuing
     return stats.gameState
 
 #main function
@@ -1151,9 +1195,7 @@ async def main():
         #doing mandatory stuff
         clock.tick(FPS)
         pygame.display.flip()
-    await asyncio.sleep(0)
-
-
+        await asyncio.sleep(0)
 
 #stuff
 if __name__=="__main__":
